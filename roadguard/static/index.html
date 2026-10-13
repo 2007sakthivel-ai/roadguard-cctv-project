@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101b2c">
+  <title>RoadGuard | Incident Monitor</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b1220; --panel:#121e30; --line:#25364d; --muted:#9aabc0; --text:#edf4fc; --green:#37d39a; --red:#ff6374; --blue:#66aaff; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 Inter,Segoe UI,Arial,sans-serif; }
+    header { display:flex; align-items:center; justify-content:space-between; padding:20px max(24px,calc((100% - 1440px)/2)); border-bottom:1px solid var(--line); background:#101b2c; }
+    .brand { display:flex; align-items:center; gap:12px; font-size:20px; font-weight:750; letter-spacing:.03em; }
+    .brand-mark { display:grid; place-items:center; width:38px; height:38px; border-radius:12px; background:#193653; color:var(--green); font-size:20px; }
+    .top-note { color:var(--muted); font-size:13px; }
+    main { max-width:1440px; margin:auto; padding:28px 24px 48px; }
+    .intro { display:flex; justify-content:space-between; align-items:flex-end; gap:20px; margin-bottom:22px; }
+    h1 { margin:0; font-size:27px; letter-spacing:-.02em; }
+    .subtitle { margin:5px 0 0; color:var(--muted); }
+    .status { display:flex; align-items:center; gap:9px; border:1px solid var(--line); border-radius:999px; padding:8px 13px; color:var(--muted); background:var(--panel); font-size:13px; }
+    .dot { width:8px; height:8px; border-radius:50%; background:#718096; }
+    .dot.running { background:var(--green); box-shadow:0 0 12px #37d39a88; }
+    .grid { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(300px,.8fr); gap:20px; }
+    .panel { border:1px solid var(--line); border-radius:16px; background:var(--panel); overflow:hidden; }
+    .panel-head { display:flex; align-items:center; justify-content:space-between; padding:17px 19px; border-bottom:1px solid var(--line); }
+    .panel-head h2 { margin:0; font-size:15px; font-weight:650; }
+    .live-tag { color:var(--red); font-size:11px; font-weight:750; letter-spacing:.1em; }
+    .sound-toggle { padding:7px 11px; color:var(--text); background:#29384d; font-size:12px; }
+    .sound-test { padding:7px 11px; color:var(--text); background:#29384d; font-size:12px; }
+    .sound-controls { display:flex; gap:8px; }
+    .incident-head { flex-wrap:wrap; }
+    .incident-alert { display:none; margin:18px 18px 0; padding:13px 15px; border:1px solid #a63343; border-radius:10px; background:#401d28; color:#fff; font-weight:750; }
+    .alarm-countdown { display:block; margin-top:6px; color:#ffc4ca; font-size:12px; font-weight:500; }
+    .video-wrap { aspect-ratio:16/9; display:grid; place-items:center; background:#070c14; position:relative; }
+    #feed { width:100%; height:100%; object-fit:contain; display:none; }
+    #placeholder { max-width:360px; padding:20px; text-align:center; color:var(--muted); }
+    #placeholder .camera { font-size:42px; margin-bottom:8px; }
+    .controls { padding:18px; display:grid; grid-template-columns:1fr auto auto auto; gap:10px; }
+    input { width:100%; min-width:0; border:1px solid var(--line); border-radius:9px; background:#0b1422; color:var(--text); padding:11px 13px; outline:none; }
+    input:focus { border-color:var(--blue); }
+    button { border:0; border-radius:9px; padding:10px 16px; color:#08141b; background:var(--green); font-weight:700; cursor:pointer; }
+    button.secondary { color:var(--text); background:#29384d; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .hint { grid-column:1/-1; color:var(--muted); font-size:12px; margin-top:-3px; }
+    .metrics { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
+    .metric { border:1px solid var(--line); border-radius:13px; padding:16px; background:var(--panel); }
+    .metric-label { color:var(--muted); font-size:12px; }
+    .metric-value { margin-top:4px; font-size:23px; font-weight:700; }
+    .events { margin-top:20px; }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th,td { padding:12px 17px; text-align:left; border-bottom:1px solid var(--line); white-space:nowrap; }
+    th { color:var(--muted); font-weight:550; }
+    tr:last-child td { border-bottom:0; }
+    .badge { color:#ff8c97; background:#51232b66; padding:4px 8px; border-radius:999px; font-size:11px; }
+    .message { margin:14px 18px 0; color:var(--red); font-size:13px; }
+    .empty { padding:24px 18px; text-align:center; color:var(--muted); }
+    footer { margin-top:20px; color:var(--muted); font-size:12px; text-align:center; }
+    @media(max-width:850px) { .grid { grid-template-columns:1fr; } .intro { align-items:flex-start; flex-direction:column; } }
+    @media(max-width:580px) { main { padding:22px 14px 36px; } header { padding:15px 14px; } .top-note { display:none; } .controls { grid-template-columns:1fr 1fr; } .controls input { grid-column:1/-1; } .hint { grid-column:1/-1; } .sound-controls { gap:5px; } .sound-test,.sound-toggle { padding:7px 8px; font-size:11px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="brand-mark">R</span> ROADGUARD</div>
+    <div class="top-note">AI-assisted traffic incident monitoring</div>
+  </header>
+  <main>
+    <section class="intro">
+      <div><h1>Incident monitor</h1><p class="subtitle">Live camera analysis and responder alert status</p></div>
+      <div class="status"><span id="statusDot" class="dot"></span><span id="statusText">Connecting…</span></div>
+    </section>
+    <div class="grid">
+      <section class="panel">
+        <div class="panel-head"><h2>Camera feed</h2><span class="live-tag">● LIVE</span></div>
+        <div class="video-wrap">
+          <img id="feed" alt="Live annotated camera feed">
+          <div id="placeholder"><div class="camera">◉</div><strong>Feed is not running</strong><br>Enter a camera, video file, or RTSP source below to begin.</div>
+        </div>
+        <div id="error" class="message" role="alert"></div>
+        <div class="controls">
+          <input id="source" value="0" aria-label="Video source" placeholder="Camera index, video path, or rtsp:// URL">
+          <button id="start">Start monitoring</button>
+          <button id="preview" class="secondary">Camera preview only</button>
+          <button id="stop" class="secondary" disabled>Stop</button>
+          <div class="hint">Examples: <code>0</code> (default webcam), <code>C:\videos\traffic.mp4</code>, <code>rtsp://camera/stream</code></div>
+        </div>
+        <div id="previewNote" class="hint" style="display:none;padding:0 18px 16px">Preview only: accident detection and emergency alerts are OFF.</div>
+      </section>
+      <aside>
+        <div class="metrics">
+          <div class="metric"><div class="metric-label">Processing speed</div><div id="fps" class="metric-value">— <small style="font-size:12px;color:var(--muted)">FPS</small></div></div>
+          <div class="metric"><div class="metric-label">External alerts</div><div id="alerts" class="metric-value" style="font-size:18px">Checking…</div></div>
+        </div>
+        <section class="panel">
+          <div class="panel-head incident-head"><h2>Latest incident</h2><div class="sound-controls"><button id="testSound" class="sound-test" type="button">Test sound</button><button id="soundToggle" class="sound-toggle" type="button" aria-pressed="true">🔊 Sound alerts: ON</button></div></div>
+          <div id="incidentNotice" class="incident-alert" role="alert" aria-live="assertive"><span id="incidentMessage"></span><span id="alarmCountdown" class="alarm-countdown"></span></div>
+          <div id="latest" class="empty">No incidents recorded.</div>
+        </section>
+      </aside>
+    </div>
+    <section class="panel events">
+      <div class="panel-head"><h2>Recent incidents</h2><span class="top-note">Most recent first</span></div>
+      <div class="table-wrap"><table><thead><tr><th>Time (UTC)</th><th>Detection</th><th>Confidence</th><th>Source</th><th>Evidence</th></tr></thead><tbody id="events"><tr><td colspan="5" class="empty">Loading incidents…</td></tr></tbody></table></div>
+    </section>
+    <footer>Detection is an aid, not a substitute for human verification or emergency dispatch procedures.</footer>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const feed = $("feed");
+    let latestIncidentId = null;
+    let soundEnabled = true;
+    let alertAudioContext = null;
+    let alarmOscillator = null;
+    let alarmStopTimer = null;
+    let alarmSpeechTimer = null;
+    let alarmCountdownTimer = null;
+    let alarmGeneration = 0;
+    let alarmForAccident = false;
+    function safeText(value) { return String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+    async function api(path, options = {}) {
+      const response = await fetch(path, {headers:{"Content-Type":"application/json"}, ...options});
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || `Request failed (${response.status})`);
+      return data;
+    }
+    function showError(message = "") { $("error").textContent = message; }
+    function unlockAlertAudio() {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      try {
+        if (!alertAudioContext) alertAudioContext = new AudioContextClass();
+        if (alertAudioContext.state === "suspended") {
+          alertAudioContext.resume().catch(error => console.warn("Alert audio could not start", error));
+        }
+      } catch (error) {
+        console.warn("Alert audio is unavailable", error);
+      }
+    }
+    function clearAlarmTimers() {
+      window.clearTimeout(alarmStopTimer);
+      window.clearInterval(alarmSpeechTimer);
+      window.clearInterval(alarmCountdownTimer);
+      alarmStopTimer = null;
+      alarmSpeechTimer = null;
+      alarmCountdownTimer = null;
+    }
+    function stopAudibleAlarm(countdownMessage = "") {
+      alarmGeneration += 1;
+      clearAlarmTimers();
+      if (alarmOscillator) {
+        try { alarmOscillator.stop(); } catch (error) { console.debug("Alarm tone was already stopped", error); }
+        alarmOscillator = null;
+      }
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+      alarmForAccident = false;
+      $("testSound").disabled = !soundEnabled;
+      $("alarmCountdown").textContent = countdownMessage;
+    }
+    function playAlertSound(message, durationSeconds = 60, isAccident = false) {
+      if (!soundEnabled) return;
+      stopAudibleAlarm();
+      const generation = alarmGeneration;
+      alarmForAccident = isAccident;
+      $("testSound").disabled = isAccident;
+      const durationMs = durationSeconds * 1000;
+      const startAlarm = () => {
+        if (!soundEnabled || generation !== alarmGeneration || !alertAudioContext) return;
+        const startsAt = alertAudioContext.currentTime;
+        const endsAt = startsAt + durationSeconds;
+        const oscillator = alertAudioContext.createOscillator();
+        const volume = alertAudioContext.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(880, startsAt);
+        volume.gain.setValueAtTime(0.001, startsAt);
+        for (let cycle = 0; cycle * 2 < durationSeconds; cycle += 1) {
+          for (let pulse = 0; pulse < 3; pulse += 1) {
+            const pulseAt = startsAt + cycle * 2 + pulse * 0.38;
+            volume.gain.setValueAtTime(0.001, pulseAt);
+            volume.gain.linearRampToValueAtTime(0.22, pulseAt + 0.025);
+            volume.gain.setValueAtTime(0.22, pulseAt + 0.20);
+            volume.gain.linearRampToValueAtTime(0.001, pulseAt + 0.24);
+          }
+        }
+        oscillator.connect(volume);
+        volume.connect(alertAudioContext.destination);
+        oscillator.start(startsAt);
+        oscillator.stop(endsAt);
+        alarmOscillator = oscillator;
+
+        const speak = () => {
+          if (!soundEnabled || generation !== alarmGeneration || !("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return;
+          window.speechSynthesis.cancel();
+          const announcement = new SpeechSynthesisUtterance(message);
+          announcement.lang = "en-IN";
+          announcement.rate = 0.95;
+          announcement.volume = 1;
+          window.speechSynthesis.speak(announcement);
+        };
+        if (message.includes("Accident detected")) {
+          speak();
+          alarmSpeechTimer = window.setInterval(speak, 12000);
+        } else {
+          speak();
+        }
+        const updateCountdown = () => {
+          const secondsLeft = Math.max(0, Math.ceil((generationEndsAt - Date.now()) / 1000));
+          const display = `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`;
+          $("alarmCountdown").textContent = secondsLeft
+            ? `Warning sound and voice alert active · ${display} remaining`
+            : "One-minute warning alert complete.";
+        };
+        const generationEndsAt = Date.now() + durationMs;
+        updateCountdown();
+        alarmCountdownTimer = window.setInterval(updateCountdown, 1000);
+        alarmStopTimer = window.setTimeout(() => {
+          if (generation === alarmGeneration) stopAudibleAlarm("One-minute warning alert complete.");
+        }, durationMs);
+      };
+
+      if (alertAudioContext?.state === "running") {
+        startAlarm();
+      } else if (alertAudioContext) {
+        alertAudioContext.resume()
+          .then(startAlarm)
+          .catch(error => {
+            console.warn("Alert audio could not start", error);
+            $("alarmCountdown").textContent = "Allow audio in the browser and click Test sound to enable alerts.";
+          });
+      }
+    }
+    function playAccidentAlert(event) {
+      $("incidentMessage").textContent = `ACCIDENT DETECTED — ${event.label} (${Math.round(event.confidence * 100)}% confidence). Check the camera feed and respond.`;
+      $("incidentNotice").style.display = "block";
+      renderLatest(event);
+      playAlertSound("Warning. Accident detected. Accident detected. Please verify the camera footage and contact emergency responders.", 60, true);
+    }
+    function renderStatus(s) {
+      const running = s.state === "running";
+      const previewing = s.state === "previewing";
+      const active = running || previewing;
+      const busy = active || s.state === "starting";
+      $("statusDot").className = `dot ${active ? "running" : ""}`;
+      $("statusText").textContent = previewing ? "Camera preview only · detection off" : (running ? "Monitoring active" : (s.state === "error" ? "Needs attention" : "Monitoring stopped"));
+      $("fps").innerHTML = `${previewing ? "—" : (s.fps ?? 0)} <small style="font-size:12px;color:var(--muted)">FPS</small>`;
+      $("alerts").textContent = previewing ? "Off (preview)" : (s.alerts_enabled ? "Configured" : "Not configured");
+      $("alerts").style.color = !previewing && s.alerts_enabled ? "var(--green)" : "var(--muted)";
+      $("start").disabled = busy;
+      $("preview").disabled = busy;
+      $("stop").disabled = !active;
+      $("source").disabled = busy;
+      $("previewNote").style.display = previewing ? "block" : "none";
+      if (s.last_error) showError(s.last_error);
+      if (active && feed.style.display !== "block") {
+        $("placeholder").style.display = "none";
+        feed.src = `/video_feed?t=${Date.now()}`;
+        feed.style.display = "block";
+      }
+      if (!active) {
+        feed.removeAttribute("src");
+        feed.style.display = "none";
+        $("placeholder").style.display = "block";
+      }
+      if (s.last_incident) renderLatest(s.last_incident);
+    }
+    function renderLatest(event) {
+      const time = new Date(event.created_at).toLocaleString();
+      $("latest").className = "";
+      $("latest").style.cssText = "padding:18px;color:var(--text)";
+      $("latest").innerHTML = `<span class="badge">${safeText(event.label)}</span><p style="margin:12px 0 4px"><strong>${Math.round(event.confidence * 100)}%</strong> confidence</p><small style="color:var(--muted)">${safeText(time)} · ${safeText(event.source)}</small>`;
+    }
+    async function refresh() {
+      try { renderStatus(await api("/api/status")); } catch (e) { showError(e.message); }
+      try {
+        const events = await api("/api/events?limit=200");
+        $("events").innerHTML = events.length ? events.map(event => `<tr><td>${safeText(new Date(event.created_at).toLocaleString())}</td><td><span class="badge">${safeText(event.label)}</span></td><td>${Math.round(event.confidence * 100)}%</td><td>${safeText(event.source)}</td><td>${event.snapshot_path ? `<a href="/api/events/${event.id}/snapshot" target="_blank" rel="noreferrer">View image</a>` : "—"}</td></tr>`).join("") : `<tr><td colspan="5" class="empty">No incidents recorded yet.</td></tr>`;
+        if (events.length && !$("latest").querySelector(".badge")) renderLatest(events[0]);
+        const newestId = events.length ? Number(events[0].id) : 0;
+        if (latestIncidentId === null) {
+          latestIncidentId = newestId;
+        } else if (newestId > latestIncidentId) {
+          const newEvents = events
+            .filter(event => Number(event.id) > latestIncidentId)
+            .sort((a, b) => Number(a.id) - Number(b.id));
+          latestIncidentId = newestId;
+          for (const event of newEvents) playAccidentAlert(event);
+        }
+      } catch (e) { console.error("Unable to load incidents", e); }
+      window.setTimeout(refresh, 250);
+    }
+    $("start").addEventListener("click", async () => {
+      showError("");
+      unlockAlertAudio();
+      try {
+        const existingEvents = await api("/api/events?limit=1");
+        latestIncidentId = Math.max(latestIncidentId ?? 0, existingEvents.length ? Number(existingEvents[0].id) : 0);
+        renderStatus(await api("/api/start", {method:"POST", body:JSON.stringify({source:$("source").value})}));
+      }
+      catch (e) { showError(e.message); }
+    });
+    $("preview").addEventListener("click", async () => {
+      showError("");
+      try {
+        renderStatus(await api("/api/preview", {method:"POST", body:JSON.stringify({source:$("source").value})}));
+      }
+      catch (e) { showError(e.message); }
+    });
+    $("testSound").addEventListener("click", () => {
+      if (alarmForAccident) return;
+      unlockAlertAudio();
+      playAlertSound("This is a RoadGuard alert test. Accident alerts are enabled.", 4);
+    });
+    $("soundToggle").addEventListener("click", () => {
+      soundEnabled = !soundEnabled;
+      $("soundToggle").textContent = soundEnabled ? "🔊 Sound alerts: ON" : "🔇 Sound alerts: OFF";
+      $("soundToggle").setAttribute("aria-pressed", String(soundEnabled));
+      $("testSound").disabled = !soundEnabled;
+      if (soundEnabled) {
+        unlockAlertAudio();
+      } else if ("speechSynthesis" in window) {
+        stopAudibleAlarm("Sound alerts are muted.");
+      }
+    });
+    $("stop").addEventListener("click", async () => {
+      showError("");
+      try { renderStatus(await api("/api/stop", {method:"POST"}) ); }
+      catch (e) { showError(e.message); }
+    });
+    refresh();
+  </script>
+</body>
+</html>
